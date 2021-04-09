@@ -2,25 +2,51 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
 import App from './App';
-import reportWebVitals from './reportWebVitals';
-import { Provider } from 'react-redux';
+import * as serviceWorker from './serviceWorker';
 import { createStore, applyMiddleware } from 'redux';
-import rootReducer from './module';
+import { Provider } from 'react-redux';
+import rootReducer, { rootSaga } from './modules';
 import logger from 'redux-logger';
 import { composeWithDevTools } from 'redux-devtools-extension';
 import ReduxThunk from 'redux-thunk';
+import { Router } from 'react-router-dom';
+import { createBrowserHistory } from 'history';
+import createSagaMiddleware from 'redux-saga';
 
-const store = createStore(rootReducer, composeWithDevTools(applyMiddleware(ReduxThunk, logger)));
-// myLogger가 첫 번째 미들웨어고, 두 번째 미들웨어가 logger
+const customHistory = createBrowserHistory();
+// redux-thunk를 사용하기 위해서 customHistory를 만듦
+
+const sagaMiddleware = createSagaMiddleware({
+  context: {
+    history: customHistory
+    }
+  }); // 사가 미들웨어를 만듭니다.
+
+const store = createStore(
+  rootReducer,
+  // logger 를 사용하는 경우, logger가 가장 마지막에 와야합니다.
+  composeWithDevTools(
+    applyMiddleware(
+      ReduxThunk.withExtraArgument({ history: customHistory }),
+      sagaMiddleware, // 사가 미들웨어를 적용하고
+      logger
+    )
+  )
+); // 여러개의 미들웨어를 적용 할 수 있습니다.
+
+sagaMiddleware.run(rootSaga); // 루트 사가를 실행해줍니다.
+// 주의: 스토어 생성이 된 다음에 위 코드를 실행해야합니다.
 
 ReactDOM.render(
-  <Provider store = {store}>
-    <App />
-  </Provider>,
+  <Router history={customHistory}>
+    <Provider store={store}>
+      <App />
+    </Provider>
+  </Router>,
   document.getElementById('root')
 );
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-reportWebVitals();
+// If you want your app to work offline and load faster, you can change
+// unregister() to register() below. Note this comes with some pitfalls.
+// Learn more about service workers: https://bit.ly/CRA-PWA
+serviceWorker.unregister();
